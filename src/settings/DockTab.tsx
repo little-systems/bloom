@@ -5,6 +5,7 @@ import {
 	Eye,
 	EyeOff,
 	Circle,
+	Layers,
 	Columns2,
 	Maximize2,
 	Keyboard,
@@ -110,6 +111,8 @@ interface DockTabProps {
 	handleDockEdgeDelayChange: (val: number) => void;
 	dockPreviewEnabled: boolean;
 	toggleDockPreview: () => void;
+	dockShowBackgroundApps: boolean;
+	toggleDockShowBackgroundApps: () => void;
 	dockIconOnly: boolean;
 	toggleDockIconOnly: () => void;
 	dockSeparatorEnabled: boolean;
@@ -146,6 +149,8 @@ export function DockTab({
 	handleDockEdgeDelayChange,
 	dockPreviewEnabled,
 	toggleDockPreview,
+	dockShowBackgroundApps,
+	toggleDockShowBackgroundApps,
 	dockIconOnly,
 	toggleDockIconOnly,
 	dockSeparatorEnabled,
@@ -241,6 +246,22 @@ export function DockTab({
 							</label>
 						</SettingRow>
 
+						<SettingRow
+							icon={Layers}
+							label="Show Background Apps"
+							desc="Keep apps in the dock when they close to the system tray"
+						>
+							<label className="toggle-switch">
+								<input
+									type="checkbox"
+									aria-label="Show Background Apps"
+									checked={dockShowBackgroundApps}
+									onChange={toggleDockShowBackgroundApps}
+								/>
+								<span className="slider"></span>
+							</label>
+						</SettingRow>
+
 						<SettingRow icon={Circle} label="Icon Only" desc="Remove icon background and padding">
 							<label className="toggle-switch">
 								<input type="checkbox" checked={dockIconOnly} onChange={toggleDockIconOnly} />
@@ -317,7 +338,8 @@ export function DockTab({
 						</SettingRow>
 
 						{dockExtrasPosition !== "off" && (
-							<>
+							<details className="settings-disclosure">
+								<summary>Manage dock extras <span>Drives, folders and Recycle Bin</span></summary>
 								<SettingRow
 									icon={HardDrive}
 									label="Drives"
@@ -448,7 +470,7 @@ export function DockTab({
 										</button>
 									</div>
 								</div>
-							</>
+							</details>
 						)}
 
 						<div className="setting-divider" />

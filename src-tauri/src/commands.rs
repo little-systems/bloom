@@ -29,6 +29,32 @@ pub async fn set_dock_hovered(hovered: bool) {
 }
 
 #[tauri::command]
+pub fn set_dock_popup_active(app: AppHandle, window: Window, active: bool) {
+    if window.label() != "dock" {
+        return;
+    }
+    let active = active && crate::services::dock_popup_allowed();
+    let start_open = active && is_start_menu_open();
+    let press_ms = DOCK_START_PRESS_MS.swap(0, Ordering::Relaxed);
+    let recent_start_press = press_ms > 0 && (0..=1000).contains(&(get_now_ms() - press_ms));
+    let keep_visible = active
+        && (start_open || recent_start_press || DOCK_SHELL_INTERACTION.load(Ordering::Relaxed));
+    if DOCK_SHELL_INTERACTION.swap(keep_visible, Ordering::Relaxed) != keep_visible {
+        let _ = app.emit_to("dock", "dock-shell-interaction", keep_visible);
+    }
+    if start_open {
+        // Start's shell surface may live above ordinary topmost windows. Close
+        // it on deliberate dock use, rather than endlessly fighting its z-order.
+        send_key_tap(windows::Win32::UI::Input::KeyboardAndMouse::VK_ESCAPE);
+    }
+    if active {
+        if let Ok(hwnd) = window.hwnd() {
+            re_assert_topmost(hwnd);
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn set_notch_hovered(app: AppHandle, hovered: bool) {
     NOTCH_IS_HOVERED.store(hovered, Ordering::Relaxed);
     // Re-evaluate right away. During a native drag the webview never sees the
@@ -296,6 +322,9 @@ fn disable_dock(app: &AppHandle) {
     if !set_taskbar_visibility(true, true) {
         return;
     }
+    DOCK_SHELL_INTERACTION.store(false, Ordering::Relaxed);
+    DOCK_START_PRESS_MS.store(0, Ordering::Relaxed);
+    let _ = app.emit_to("dock", "dock-shell-interaction", false);
     if let Some(dock_win) = app.get_webview_window("dock") {
         disable_dock_appbar(dock_win);
     }
@@ -2317,21 +2346,41 @@ pub fn hide_native_osd() {
 
 #[tauri::command]
 pub fn open_settings_window(app: AppHandle) {
-    if let Some(win) = app.get_webview_window("settings") {
-        let _ = win.show();
-        let _ = win.unminimize();
-        let _ = win.set_focus();
-        if let Ok(hwnd) = win.hwnd() {
-            unsafe {
-                use windows::Win32::UI::WindowsAndMessaging::{
-                    SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
-                };
-                let _ = ShowWindow(hwnd, SW_SHOW);
-                let _ = ShowWindow(hwnd, SW_RESTORE);
-                let _ = SetForegroundWindow(hwnd);
+    // WebView2 creation must run off the Windows UI thread, including tray callbacks.
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = crate::settings_window::with_window(&app, |win, created| {
+            if SHUTTING_DOWN.load(Ordering::Relaxed) {
+                return;
             }
+            if created {
+                let _ = window_vibrancy::apply_mica(win, None);
+                crate::services::watch_webview_process(&app, win);
+            }
+            let _ = win.show();
+            let _ = win.unminimize();
+            let _ = win.set_focus();
+            if let Ok(hwnd) = win.hwnd() {
+                unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::{
+                        SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
+                    };
+                    let _ = ShowWindow(hwnd, SW_SHOW);
+                    let _ = ShowWindow(hwnd, SW_RESTORE);
+                    let _ = SetForegroundWindow(hwnd);
+                }
+            }
+        });
+        if let Err(error) = result {
+            eprintln!("Failed to open Bloom settings: {error}");
         }
-    }
+    });
+}
+
+#[tauri::command]
+pub async fn close_settings_window(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || crate::settings_window::close(&app))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

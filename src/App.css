@@ -42,6 +42,9 @@ img {
 	--notch-bg: var(--bloom-bg, rgba(0, 0, 0, 0.8));
 	/* Painted by the .edge-surface child (see components/EdgeSurface.css). */
 	--surface-bg: var(--notch-bg);
+	/* A continuous reflection along the lower rim and curved sides. */
+	--surface-edge: var(--bloom-text, white);
+	--surface-light: white;
 	isolation: isolate;
 	border-radius: 0 0 18px 18px;
 	border: none;
@@ -740,7 +743,129 @@ img {
 }
 
 .calendar-header {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 24px;
 	margin-bottom: 8px;
+}
+
+.calendar-header button,
+.cc-level-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: 5px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	padding: 3px;
+	min-width: 20px;
+	height: 24px;
+}
+
+.calendar-header .calendar-heading {
+	justify-content: flex-start;
+	padding-left: 0;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+	margin-right: auto;
+	flex: 1;
+	min-width: 0;
+}
+
+.calendar-navigation {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 46px;
+	order: 2;
+	height: 24px;
+	box-sizing: border-box;
+	border: 1px solid var(--bloom-border, rgba(255, 255, 255, 0.1));
+	border-radius: 999px;
+	background: var(--bloom-group-bg, rgba(255, 255, 255, 0.04));
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.calendar-navigation button {
+	width: 22px;
+	min-width: 22px;
+	height: 22px;
+	padding: 0;
+	border-radius: 999px;
+}
+.calendar-container:hover .calendar-navigation,
+.calendar-container:focus-within .calendar-navigation {
+	opacity: 1;
+}
+.calendar-header .calendar-today {
+	flex: 0 0 34px;
+	order: 1;
+	font: inherit;
+	font-size: 9px;
+	opacity: 0.65;
+}
+.calendar-today.is-current {
+	visibility: hidden;
+}
+
+.calendar-month-picker {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+.calendar-month-picker select,
+.calendar-month-picker input {
+	border: 0;
+	border-radius: 5px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 11px;
+	font-weight: 600;
+	height: 24px;
+	min-width: 0;
+	padding: 0 1px;
+}
+.calendar-month-picker select {
+	flex: 1;
+	cursor: pointer;
+}
+.calendar-month-picker option {
+	background: var(--bloom-bg-expanded, black);
+	color: var(--bloom-text, white);
+}
+.calendar-month-picker input {
+	width: 49px;
+	appearance: textfield;
+}
+.calendar-month-picker input::-webkit-inner-spin-button {
+	display: none;
+}
+.calendar-header button:hover,
+.cc-level-toggle:hover,
+.cc-level-toggle[aria-pressed="true"] {
+	background: color-mix(in srgb, var(--bloom-text, white) 12%, transparent);
+}
+.calendar-container:focus-visible,
+.calendar-container :focus-visible,
+.cc-level-toggle:focus-visible {
+	outline: 1px solid currentColor;
+	outline-offset: 2px;
+}
+
+.cc-classic-slider-label .cc-level-toggle {
+	min-width: 22px;
+	width: 22px;
+	height: 22px;
+	flex-shrink: 0;
 }
 
 .month-year {
@@ -765,7 +890,7 @@ img {
 }
 
 .calendar-day {
-	aspect-ratio: 1;
+	height: 28px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -840,23 +965,23 @@ img {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 5px;
+	gap: 0;
 	cursor: text;
 }
 
 .roll-digit {
 	position: relative;
 	display: inline-flex;
-	width: 34px;
-	height: 58px;
+	width: 23px;
+	height: 52px;
 	overflow: hidden;
 	perspective: 300px;
 	font-variant-numeric: tabular-nums;
 }
 
 .roll-digit.compact {
-	width: 26px;
-	height: 46px;
+	width: 18px;
+	height: 44px;
 }
 
 .roll-num {
@@ -881,7 +1006,7 @@ img {
 	font-weight: 600;
 	line-height: 1;
 	opacity: 0.3;
-	padding: 0 2px;
+	padding: 0 1px;
 }
 
 .timer-main {
@@ -941,6 +1066,12 @@ img {
 	background: transparent;
 	color: transparent;
 	caret-color: transparent;
+	text-align: center;
+	font: inherit;
+	font-size: 32px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -1px;
 	cursor: text;
 }
 
@@ -1641,6 +1772,109 @@ img {
 	opacity: 1;
 }
 
+/* Device alert: a device's drawing, name and battery across the whole pill */
+.device-alert {
+	position: absolute;
+	inset: 0;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 18px 0 14px;
+	color: var(--bloom-text, white);
+	cursor: pointer;
+}
+
+.device-alert-text {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.device-alert-name {
+	font-size: 13.5px;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.device-alert-status {
+	font-size: 12px;
+	color: var(--bloom-text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.device-alert-battery {
+	position: relative;
+	width: 28px;
+	height: 28px;
+	flex: none;
+	display: grid;
+	place-items: center;
+}
+
+.device-alert-battery svg {
+	position: absolute;
+	inset: 0;
+}
+
+.device-alert-battery circle {
+	fill: none;
+	stroke-width: 2.6;
+}
+
+.device-alert-battery .track {
+	stroke: rgba(255, 255, 255, 0.14);
+}
+
+.device-alert-battery .level {
+	stroke: #32d74b;
+	stroke-linecap: round;
+	transition: stroke-dasharray 0.6s ease;
+}
+
+.device-alert-battery.low .level {
+	stroke: #ff453a;
+}
+
+.device-alert-battery span {
+	font-size: 9.5px;
+	font-weight: 600;
+}
+
+/* Earbuds: a ring for each bud and the case, labelled underneath */
+.device-alert-buds {
+	flex: none;
+	display: flex;
+	gap: 7px;
+}
+
+.device-alert-bud {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+}
+
+.device-alert-bud-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	font-size: 9px;
+	font-weight: 600;
+	color: var(--bloom-text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.device-alert-bud-charging {
+	width: 9px;
+	height: 9px;
+	color: #32d74b;
+	fill: currentColor;
+	stroke-width: 0;
+}
+
 /* Announcement card */
 .announcement-content {
 	position: absolute;
@@ -1756,7 +1990,7 @@ img {
 	align-items: center;
 	gap: 8px;
 	padding: 5px 8px;
-	border-radius: 10px;
+	border-radius: 999px;
 	background: var(--bloom-group-bg, rgba(255, 255, 255, 0.04));
 	border: 1px solid var(--bloom-border, rgba(255, 255, 255, 0.02));
 	cursor: pointer;
@@ -1934,7 +2168,8 @@ img {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	width: 75px;
+	width: 86px;
+	flex-shrink: 0;
 	font-size: 9px;
 	font-weight: 600;
 	color: var(--bloom-text-muted, rgba(255, 255, 255, 0.65));

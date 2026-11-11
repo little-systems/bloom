@@ -1,4 +1,4 @@
-import { StrictMode, useState, useEffect } from "react";
+import { StrictMode, useState, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Effect } from "@tauri-apps/api/window";
@@ -17,6 +17,7 @@ import {
 import type { SettingsTab } from "./settings/index";
 import { useAnnouncement } from "./hooks/useAnnouncement";
 import { initTheme } from "./theme";
+import { FeaturePreview } from "./settings/FeaturePreview";
 import "./Settings.css";
 
 const appWindow = getCurrentWebviewWindow();
@@ -30,9 +31,50 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
 	{ id: "about", label: "About", icon: Info }
 ];
 
+const TAB_COPY: Record<SettingsTab, string> = {
+	general: "The essentials for how Bloom starts and runs.",
+	appearance: "Make every surface feel at home on your desktop.",
+	notch: "Choose what appears at the top of your screen.",
+	dock: "Shape the taskbar replacement around your workflow.",
+	overlays: "Keep quick controls visible only when you need them.",
+	about: "Version, updates and your settings data."
+};
+
 function SettingsApp() {
 	const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+	const [previewFocus, setPreviewFocus] = useState("");
+	const contentRef = useRef<HTMLDivElement>(null);
 	const settings = useSettings();
+	useEffect(() => {
+		if (!settings.isLoaded) return;
+		document.documentElement.dataset.settingsReady = "true";
+		document.getElementById("settings-loading")?.setAttribute("aria-hidden", "true");
+		document.getElementById("root")?.setAttribute("aria-busy", "false");
+	}, [settings.isLoaded]);
+	const closingRef = useRef(false);
+	const [isClosing, setIsClosing] = useState(false);
+	const { flushPendingSaves } = settings;
+	const closeSettings = useCallback(async () => {
+		if (closingRef.current) return;
+		closingRef.current = true;
+		setIsClosing(true);
+		try {
+			if (await flushPendingSaves()) await invoke("close_settings_window");
+		} catch (error) {
+			console.error("Failed to close Settings:", error);
+		} finally {
+			closingRef.current = false;
+			setIsClosing(false);
+		}
+	}, [flushPendingSaves]);
+
+	useEffect(() => {
+		const unlisten = appWindow.onCloseRequested((event) => {
+			event.preventDefault();
+			return closeSettings();
+		});
+		return () => { void unlisten.then((fn) => fn()); };
+	}, [closeSettings]);
 	const { announcement, dismissed, dismiss } = useAnnouncement();
 
 	useEffect(() => {
@@ -57,21 +99,23 @@ function SettingsApp() {
 
 	useEffect(() => {
 		invoke("resize_settings_window", {
-			width: 620 * settings.scale,
-			height: 480 * settings.scale
+			width: 740 * settings.scale,
+			height: 560 * settings.scale
 		}).catch(console.error);
 	}, [settings.scale]);
+
+	useEffect(() => {
+		if (contentRef.current) contentRef.current.scrollTop = 0;
+	}, [activeTab]);
 
 	const handleClose = async (e: React.MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
-		try {
-			await appWindow.hide();
-		} catch {}
+		await closeSettings();
 	};
 
 	return (
-		<div className="settings-container" style={{ zoom: settings.scale }}>
+		<div className="settings-container" style={{ zoom: settings.scale }} inert={isClosing}>
 			<div className="title-bar" data-tauri-drag-region>
 				<span className="title-text" data-tauri-drag-region>
 					Settings
@@ -83,6 +127,7 @@ function SettingsApp() {
 
 			<div className="settings-body">
 				<div className="settings-sidebar">
+					<div className="settings-sidebar-intro"><strong>Bloom</strong><span>Make it yours</span></div>
 					{TABS.map(({ id, label, icon: Icon }) => (
 						<button
 							key={id}
@@ -97,7 +142,24 @@ function SettingsApp() {
 					))}
 				</div>
 
-				<div className="settings-content">
+				<div className="settings-content" ref={contentRef} onChangeCapture={(event) => {
+					const target = event.target as HTMLElement;
+					const row = target.closest(".setting-item");
+					let label = row?.querySelector(".setting-label")?.textContent;
+					if (!label && target.closest(".settings-disclosure-standalone")) label = "Status Widgets";
+					if (activeTab === "overlays" && label === "Show on Edge Hover") {
+						const edgeRows = Array.from(contentRef.current?.querySelectorAll(".setting-item") ?? []).filter(
+							(item) => item.querySelector(".setting-label")?.textContent === label
+						);
+						label = row === edgeRows[edgeRows.length - 1] && edgeRows.length > 1 ? "Brightness Edge Hover" : "Volume Edge Hover";
+					}
+					if (label) setPreviewFocus(activeTab + ":" + label + ":" + Date.now());
+				}} onClickCapture={(event) => {
+					const label = (event.target as HTMLElement).closest(".setting-item")?.querySelector(".setting-label")?.textContent;
+					if (label === "Start Menu Icon" || label === "Weather Status") {
+						setPreviewFocus(activeTab + ":" + label + ":" + Date.now());
+					}
+				}}>
 					{settings.saveError && (
 						<div className="settings-save-error" role="alert">
 							<span>
@@ -133,6 +195,15 @@ function SettingsApp() {
 							</button>
 						</div>
 					)}
+					<div className="settings-page-heading">
+						<h1>{TABS.find((tab) => tab.id === activeTab)?.label}</h1>
+						<p>{TAB_COPY[activeTab]}</p>
+					</div>
+					<FeaturePreview
+						tab={activeTab}
+						settings={settings}
+						focus={previewFocus}
+					/>
 					{activeTab === "general" && (
 						<GeneralTab
 							autostart={settings.autostart}
@@ -162,6 +233,8 @@ function SettingsApp() {
 							handleBrightnessChange={settings.handleBrightnessChange}
 							cornersEnabled={settings.cornersEnabled}
 							toggleCorners={settings.toggleCorners}
+							edgeShineEnabled={settings.edgeShineEnabled}
+							toggleEdgeShine={settings.toggleEdgeShine}
 							scale={settings.scale}
 							handleScaleChange={settings.handleScaleChange}
 						/>
@@ -172,8 +245,15 @@ function SettingsApp() {
 							setNotchModeValue={settings.setNotchModeValue}
 							notchEdgeDelay={settings.notchEdgeDelay}
 							handleNotchEdgeDelayChange={settings.handleNotchEdgeDelayChange}
+							calendarMondayFirst={settings.calendarMondayFirst}
+							toggleCalendarMondayFirst={settings.toggleCalendarMondayFirst}
 							calendarEnabled={settings.calendarEnabled}
 							toggleCalendar={settings.toggleCalendar}
+							controlsPanelEnabled={settings.controlsPanelEnabled}
+							toggleControlsPanel={settings.toggleControlsPanel}
+							devicesPanelEnabled={settings.devicesPanelEnabled}
+							toggleDevicesPanel={settings.toggleDevicesPanel}
+							enabledPanelCount={settings.enabledPanelCount}
 							notchRememberPanel={settings.notchRememberPanel}
 							toggleNotchRememberPanel={settings.toggleNotchRememberPanel}
 							notchDefaultPanel={settings.notchDefaultPanel}
@@ -217,6 +297,8 @@ function SettingsApp() {
 							handleDockEdgeDelayChange={settings.handleDockEdgeDelayChange}
 							dockPreviewEnabled={settings.dockPreviewEnabled}
 							toggleDockPreview={settings.toggleDockPreview}
+							dockShowBackgroundApps={settings.dockShowBackgroundApps}
+							toggleDockShowBackgroundApps={settings.toggleDockShowBackgroundApps}
 							dockIconOnly={settings.dockIconOnly}
 							toggleDockIconOnly={settings.toggleDockIconOnly}
 							dockSeparatorEnabled={settings.dockSeparatorEnabled}
