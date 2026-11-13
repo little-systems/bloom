@@ -8,7 +8,11 @@ comments. Attachments are not downloaded or inspected.
 The comment contains possible duplicates with reasons, an unverified cause and
 fix direction when supported by exact quotes from supplied source references, specific unanswered
 questions, and verification steps. This is investigation assistance, not an
-automatic diagnosis. It never closes an issue or applies a duplicate label.
+automatic diagnosis. A high-confidence match to an open issue adds the `duplicate`
+label and links the candidate with a reason in the existing bot comment. Medium-confidence
+matches and matches to closed issues remain comment-only suggestions, since closed
+reports may represent regressions or already-shipped fixes. It never closes an issue
+or removes existing labels.
 Existing maintainer classifications are preserved.
 The issue is re-read before writing so classification uses current labels;
 edited or closed reports discard the stale result. Dry runs bypass the result
