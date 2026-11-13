@@ -7,6 +7,7 @@ import { askModel, geminiFallbackModels, modelAttribution, modelList } from "./a
 
 const exec = promisify(execFile);
 const MARKER = "<!-- bloom-ai-triage:v2 -->";
+const DUPLICATE_POLICY = "high-confidence-open:v1";
 const TYPES = ["bug", "enhancement", "question", "documentation"];
 const AREAS = ["dock", "notch", "media", "settings", "installer", "multi-monitor", "other"];
 const STOP = new Set(
@@ -137,9 +138,19 @@ export function validateTriage(value, candidates, excerpts) {
 	};
 }
 
+function shouldFlagDuplicate(result, candidates) {
+	return result.duplicates.some(
+		(d) =>
+			d.confidence === "high" &&
+			candidates.some((c) => c.number === d.number && c.state === "open")
+	);
+}
+
 export function triageComment(result, { repo, sha, candidates, fingerprint, response }) {
 	const lines = [MARKER, `<!-- context:${fingerprint} -->`, "🤖 **Investigation pointers**", ""];
 	lines.push(modelAttribution(response), "");
+	if (shouldFlagDuplicate(result, candidates))
+		lines.push("Flagged with `duplicate` for maintainer review; this issue remains open.", "");
 	for (const d of result.duplicates) {
 		const candidate = candidates.find((c) => c.number === d.number);
 		lines.push(
@@ -195,6 +206,7 @@ export async function investigate({
 				humanComments,
 				sha,
 				models: modelList(),
+				duplicatePolicy: DUPLICATE_POLICY,
 				gemini: process.env.GEMINI_API_KEY ? geminiFallbackModels() : null
 			})
 		)
@@ -229,6 +241,7 @@ ${JSON.stringify({ issue: { number: issue.number, title: text(issue.title, 300),
 	// Preserve all maintainer labels. Only fill classification slots that are empty.
 	const existing = (latest.labels ?? []).map((l) => (typeof l === "string" ? l : l.name));
 	const labels = [
+		shouldFlagDuplicate(result, candidates) && !existing.includes("duplicate") ? "duplicate" : null,
 		existing.some((l) => TYPES.includes(l)) ? null : result.type,
 		result.area !== "other" && !existing.some((l) => l.startsWith("area/"))
 			? `area/${result.area}`

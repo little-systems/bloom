@@ -213,11 +213,55 @@ test("repeated runs update one bot comment and skip identical context before mod
 	assert.equal(updated.writes.at(-1).path, "/repos/owner/bloom/issues/comments/42");
 });
 
-test("preserves maintainer classification and never closes or applies duplicate labels", async () => {
+test("preserves maintainer classification and leaves closed matches comment-only", async () => {
 	const h = harness([], [{ name: "enhancement" }, { name: "area/dock" }, { name: "accepted" }]);
 	await investigate(h.options);
 	assert.equal(h.writes.length, 1);
 	assert.ok(h.writes.every((w) => w.path.endsWith("/comments")));
+});
+
+test("flags high-confidence open duplicates without closing or replacing labels", async () => {
+	const h = harness([], [{ name: "enhancement" }, { name: "area/dock" }, { name: "accepted" }]);
+	const originalGh = h.options.gh;
+	h.options.gh = async (path, options) =>
+		!options && path.startsWith("/search/issues")
+			? { items: [{ ...candidate, state: "open" }] }
+			: originalGh(path, options);
+	const result = await investigate(h.options);
+	assert.deepEqual(h.writes[0], {
+		path: "/repos/owner/bloom/issues/355/labels",
+		method: "POST",
+		json: { labels: ["duplicate"] }
+	});
+	assert.match(result.body, /Flagged with `duplicate`/);
+	assert.match(result.body, /issue remains open/);
+	assert.match(result.body, /issues\/10/);
+	assert.equal(h.writes.length, 2);
+	assert.ok(h.writes.every((w) => !Object.hasOwn(w.json, "state")));
+	h.writes.length = 0;
+	await investigate({ ...h.options, dryRun: true });
+	assert.equal(h.writes.length, 0);
+});
+
+test("medium-confidence open matches stay comment-only and existing duplicate labels are preserved", async () => {
+	for (const confidence of ["high", "medium"]) {
+		const labels = [{ name: "bug" }, { name: "area/notch" }];
+		if (confidence === "high") labels.push({ name: "duplicate" });
+		const h = harness([], labels);
+		const originalGh = h.options.gh;
+		h.options.gh = async (path, options) =>
+			!options && path.startsWith("/search/issues")
+				? { items: [{ ...candidate, state: "open" }] }
+				: originalGh(path, options);
+		h.options.ask = async () => ({
+			...response,
+			text: JSON.stringify({ ...answer, duplicates: [{ ...answer.duplicates[0], confidence }] })
+		});
+		const result = await investigate(h.options);
+		assert.equal(h.writes.length, 1);
+		assert.ok(h.writes[0].path.endsWith("/comments"));
+		if (confidence === "medium") assert.doesNotMatch(result.body, /Flagged with `duplicate`/);
+	}
 });
 
 test("preserves labels added during inference and discards edited or closed reports", async () => {
