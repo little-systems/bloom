@@ -246,6 +246,7 @@ const Dock = memo(function Dock() {
 		parseFloat(localStorage.getItem("bloom-scale") || "1.0")
 	);
 	const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+	const updateDockRectRef = useRef<() => void>(() => {});
 
 	useEffect(() => {
 		const onResize = () => setViewportWidth(window.innerWidth);
@@ -339,6 +340,7 @@ const Dock = memo(function Dock() {
 	}, []);
 
 	useEffect(() => {
+		let lastGeometry = "";
 		const updateRect = () => {
 			if (dockRef.current) {
 				const rect = dockRef.current.getBoundingClientRect();
@@ -353,7 +355,7 @@ const Dock = memo(function Dock() {
 							scale
 						)
 					: null;
-				invoke("update_dock_rect", {
+				const geometry = {
 					rect: {
 						x: Math.round(rect.x) - (hasPreview ? 500 : 0),
 						y: Math.round(rect.y) - (hasPreview ? 320 : 0),
@@ -363,10 +365,18 @@ const Dock = memo(function Dock() {
 					overlapRect: overlap
 						? { ...overlap, y: Math.round(rect.y), height: Math.round(rect.height) }
 						: null
-				}).catch(() => {});
+				};
+				const key = JSON.stringify(geometry);
+				if (key !== lastGeometry) {
+					lastGeometry = key;
+					invoke("update_dock_rect", geometry).catch(() => {
+						if (lastGeometry === key) lastGeometry = "";
+					});
+				}
 			}
 		};
 
+		updateDockRectRef.current = updateRect;
 		updateRect();
 		window.addEventListener("resize", updateRect);
 		const observer = new ResizeObserver(updateRect);
@@ -375,6 +385,7 @@ const Dock = memo(function Dock() {
 		if (content) observer.observe(content);
 
 		return () => {
+			updateDockRectRef.current = () => {};
 			window.removeEventListener("resize", updateRect);
 			observer.disconnect();
 		};
@@ -1295,9 +1306,13 @@ const Dock = memo(function Dock() {
 					alignItems: "flex-end"
 				}}
 			>
+				{/* Layout projection transforms do not trigger ResizeObserver. */}
 				<motion.div
 					ref={dockRef}
 					layout
+					onUpdate={() => updateDockRectRef.current()}
+					onAnimationComplete={() => updateDockRectRef.current()}
+					onLayoutAnimationComplete={() => updateDockRectRef.current()}
 					className={`dock ${isExpanded && !isHidden ? "dock-expanded" : ""} ${isImpacted && !isExpanded && !isHidden ? "dock-impacted" : ""} ${dockIconOnly ? "dock-icon-only" : ""} ${isAdaptive ? "dock-adaptive" : ""}`}
 					onMouseEnter={() => setIsDockHovered(true)}
 					onMouseLeave={() => {
