@@ -1,0 +1,63 @@
+# TEMPORARY: verifies which token permission the contribution intake needs to
+# label and comment on a pull request (#390 / #391). Delete with its branch.
+name: Intake permission test (temporary)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  current-permissions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Label and comment with pull-requests read
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.api_url }}/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}
+          REPO: ${{ github.api_url }}/repos/${{ github.repository }}
+        run: |
+          h=(-H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          label=$(curl -s -o label.json -w '%{http_code}' -X POST "${h[@]}" "$ISSUE/labels" -d '{"labels":["needs-testing"]}')
+          comment=$(curl -s -o comment.json -w '%{http_code}' -X POST "${h[@]}" "$ISSUE/comments" -d '{"body":"Temporary permission test comment (pull-requests: read). It is deleted right away."}')
+          echo "pull-requests: read -> label POST $label, comment POST $comment"
+          echo "### pull-requests: read" >> "$GITHUB_STEP_SUMMARY"
+          echo "label POST: $label, comment POST: $comment" >> "$GITHUB_STEP_SUMMARY"
+          # Clean up anything that was created.
+          if [ "$label" = "200" ]; then curl -s -o /dev/null -X DELETE "${h[@]}" "$ISSUE/labels/needs-testing"; fi
+          if [ "$comment" = "201" ]; then
+            id=$(jq -r .id comment.json)
+            curl -s -o /dev/null -X DELETE "${h[@]}" "$REPO/issues/comments/$id"
+          fi
+
+  fixed-permissions:
+    needs: current-permissions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Label and comment with pull-requests write
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.api_url }}/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}
+          REPO: ${{ github.api_url }}/repos/${{ github.repository }}
+        run: |
+          h=(-H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          label=$(curl -s -o label.json -w '%{http_code}' -X POST "${h[@]}" "$ISSUE/labels" -d '{"labels":["needs-testing"]}')
+          comment=$(curl -s -o comment.json -w '%{http_code}' -X POST "${h[@]}" "$ISSUE/comments" -d '{"body":"Temporary permission test comment (pull-requests: write). It is deleted right away."}')
+          echo "pull-requests: write -> label POST $label, comment POST $comment"
+          echo "### pull-requests: write" >> "$GITHUB_STEP_SUMMARY"
+          echo "label POST: $label, comment POST: $comment" >> "$GITHUB_STEP_SUMMARY"
+          dl="-"; dc="-"
+          if [ "$label" = "200" ]; then dl=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "${h[@]}" "$ISSUE/labels/needs-testing"); fi
+          if [ "$comment" = "201" ]; then
+            id=$(jq -r .id comment.json)
+            dc=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "${h[@]}" "$REPO/issues/comments/$id")
+          fi
+          echo "cleanup: label DELETE $dl, comment DELETE $dc"
+          echo "cleanup: label DELETE $dl, comment DELETE $dc" >> "$GITHUB_STEP_SUMMARY"
