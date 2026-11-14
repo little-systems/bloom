@@ -6,6 +6,7 @@ import "./Dock.css";
 import { EdgeSurface } from "./components/EdgeSurface";
 import { initTheme } from "./theme";
 import { useSettingsSync } from "./hooks/useSettingsSync";
+import { useOnboardingReveal } from "./hooks/useOnboardingReveal";
 import { reloadIfMirrorWasStale } from "./hooks/settingsMirror";
 import { dockOverlapSpan } from "./dockGeometry";
 
@@ -281,7 +282,9 @@ const Dock = memo(function Dock() {
 		}
 	}, [isAnyInteraction]);
 
+	const onboardingReveal = useOnboardingReveal("dock");
 	const isHidden =
+		!onboardingReveal &&
 		!startupAnimating &&
 		((dockMode === "smart" && isOverlapped && interactionState === "none") ||
 			(dockMode === "peek" && interactionState === "none"));
