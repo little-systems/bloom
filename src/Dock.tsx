@@ -598,6 +598,8 @@ const Dock = memo(function Dock() {
 	}, [isDragging, pinnedApps]);
 
 	const fetchIcon = async (path: string, name?: string, hwnd?: number) => {
+		// This is an internal launch target, not an executable the shell can resolve.
+		if (path === "bloom-settings") return;
 		const isHost = isBrowserHost(path);
 		const cacheKey =
 			isHost && name ? `${path}:${name.toLowerCase()}` : hwnd ? `${path}-${hwnd}` : path;
@@ -1598,7 +1600,8 @@ const Dock = memo(function Dock() {
 															iconsRef.current[dockIconKey(app, isHost)] ||
 															iconsRef.current[cacheKey] ||
 															(allowPathFallback && iconsRef.current[app.path]) ||
-															app.icon;
+															app.icon ||
+															(app.path === "bloom-settings" ? "/bloom-settings.png" : undefined);
 
 														const isBloomOrSettings =
 															app.name.toLowerCase() === "settings" ||
@@ -1609,7 +1612,7 @@ const Dock = memo(function Dock() {
 															<img
 																src={icon}
 																alt={app.name}
-																className={isBloomOrSettings ? "bloom-icon-img" : ""}
+																className={isBloomOrSettings && app.path !== "bloom-settings" ? "bloom-icon-img" : ""}
 																draggable={false}
 															/>
 														) : (
@@ -1758,7 +1761,8 @@ const Dock = memo(function Dock() {
 													iconsRef.current[dockIconKey(app, isHost)] ||
 													iconsRef.current[cacheKey] ||
 													(allowPathFallback && iconsRef.current[app.path]) ||
-													app.icon;
+													app.icon ||
+													(app.path === "bloom-settings" ? "/bloom-settings.png" : undefined);
 												const isBloomOrSettings =
 													app.name.toLowerCase() === "settings" ||
 													app.name.toLowerCase() === "bloom" ||
@@ -1767,7 +1771,7 @@ const Dock = memo(function Dock() {
 													<img
 														src={icon}
 														alt={app.name}
-														className={isBloomOrSettings ? "bloom-icon-img" : ""}
+														className={isBloomOrSettings && app.path !== "bloom-settings" ? "bloom-icon-img" : ""}
 														draggable={false}
 													/>
 												) : (
