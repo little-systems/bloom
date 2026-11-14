@@ -1601,7 +1601,7 @@ const Dock = memo(function Dock() {
 															iconsRef.current[cacheKey] ||
 															(allowPathFallback && iconsRef.current[app.path]) ||
 															app.icon ||
-															(app.path === "bloom-settings" ? "/bloom-settings.png" : undefined);
+															(app.path === "bloom-settings" ? "/bloom-settings-sliders.png" : undefined);
 
 														const isBloomOrSettings =
 															app.name.toLowerCase() === "settings" ||
@@ -1762,7 +1762,7 @@ const Dock = memo(function Dock() {
 													iconsRef.current[cacheKey] ||
 													(allowPathFallback && iconsRef.current[app.path]) ||
 													app.icon ||
-													(app.path === "bloom-settings" ? "/bloom-settings.png" : undefined);
+													(app.path === "bloom-settings" ? "/bloom-settings-sliders.png" : undefined);
 												const isBloomOrSettings =
 													app.name.toLowerCase() === "settings" ||
 													app.name.toLowerCase() === "bloom" ||
