@@ -7,6 +7,7 @@ mod commands;
 mod diagnostics;
 mod dock_extras;
 mod jack;
+mod onboarding;
 mod services;
 mod settings_window;
 mod shelf;
@@ -127,6 +128,10 @@ fn main() {
             resize_settings_window,
             hide_overlay,
             set_splash_fullscreen,
+            onboarding::get_onboarding_completed,
+            onboarding::complete_onboarding,
+            onboarding::open_onboarding,
+            onboarding::set_onboarding_active,
             sync_overlay_position,
             media_play_pause,
             media_next,
@@ -226,6 +231,9 @@ fn main() {
             jack::jack_list_devices
         ])
         .setup(|app| {
+            if let Err(error) = onboarding::initialize(app.handle()) {
+                crate::diagnostics::record("onboarding_state", &error);
+            }
             init_taskbar_marker(app.handle());
             // Populate the settings cache before anything else: a webview can
             // invoke save_setting as soon as it loads, which happens before the
