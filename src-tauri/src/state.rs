@@ -54,6 +54,7 @@ pub static ANY_MEDIA_PLAYING: AtomicBool = AtomicBool::new(false);
 // recorded by the mouse hook before Start can react to the press.
 pub static START_OPEN_AT_PRESS: AtomicBool = AtomicBool::new(false);
 pub static OVERLAY_IN_SPLASH: AtomicBool = AtomicBool::new(false);
+pub static ONBOARDING_ACTIVE: AtomicBool = AtomicBool::new(false);
 pub static CURRENT_FOREGROUND_FULLSCREEN: AtomicBool = AtomicBool::new(false);
 pub static CURRENT_FOREGROUND_MAXIMIZED: AtomicBool = AtomicBool::new(false);
 

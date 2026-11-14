@@ -13,6 +13,7 @@ import {
 	type RegionRect
 } from "./windowRegion";
 import "./App.css";
+import { useOnboardingReveal } from "./hooks/useOnboardingReveal";
 import { initTheme } from "./theme";
 import {
 	PlayIcon,
@@ -894,7 +895,9 @@ function App() {
 	const appliedNotchMode = useRef<string | null>(null);
 
 	const isAnyInteraction = isHovered || isNotchHovered || isEdgeHovered;
+	const onboardingReveal = useOnboardingReveal("island");
 	const isHidden =
+		!onboardingReveal &&
 		!startupAnimating &&
 		!deviceAlertOnScreen &&
 		((notchMode === "smart" && isOverlapped && interactionState === "none") ||
@@ -1191,11 +1194,7 @@ function App() {
 				if (windowLabel === "main") {
 					const firstRun = localStorage.getItem("bloom-first-run") === null;
 					if (firstRun) {
-						import("@tauri-apps/plugin-autostart").then(({ enable, isEnabled }) => {
-							isEnabled().then((enabled) => {
-								if (!enabled) enable().catch(() => {});
-							});
-						});
+						// Startup is an explicit choice in first-time setup.
 						localStorage.setItem("bloom-first-run", "done");
 					}
 					const rawDockMode = getVal("bloom-dock-mode", "smart") as string;
