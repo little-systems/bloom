@@ -1582,7 +1582,7 @@ const Dock = memo(function Dock() {
 																		<div
 																			key={prev.hwnd}
 																			className="preview-item"
-																			onClick={() => invoke("focus_window", { hwnd: prev.hwnd })}
+																			onClick={(e) => { e.stopPropagation(); invoke("focus_window", { hwnd: prev.hwnd }); }}
 																		>
 																			<img
 																				src={prev.image}
@@ -1759,7 +1759,7 @@ const Dock = memo(function Dock() {
 																<div
 																	key={prev.hwnd}
 																	className="preview-item"
-																	onClick={() => invoke("focus_window", { hwnd: prev.hwnd })}
+																	onClick={(e) => { e.stopPropagation(); invoke("focus_window", { hwnd: prev.hwnd }); }}
 																>
 																	<img
 																		src={prev.image}
