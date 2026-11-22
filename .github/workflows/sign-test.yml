@@ -1,0 +1,117 @@
+name: Sign (test)
+
+# Manual-only: builds unsigned installers, sends them to SignPath, and keeps the
+# signed output as a workflow artifact. It never touches a GitHub release, so it
+# is safe to run against the self-signed test certificate while the SignPath
+# setup is being reviewed.
+#
+# Prerequisites: repository secret SIGNPATH_API_TOKEN and a SignPath artifact
+# configuration matching .github/signpath/artifact-configuration.xml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      organization_id:
+        description: SignPath organization ID
+        required: true
+      project_slug:
+        description: SignPath project slug
+        required: true
+        default: bloom
+      signing_policy_slug:
+        description: SignPath signing policy slug
+        required: true
+        default: test-signing
+      artifact_configuration_slug:
+        description: SignPath artifact configuration slug
+        required: true
+        default: Windows_Installers
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sign:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: 1.95.0
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build unsigned bundle
+        shell: bash
+        # No updater artifacts: this test only exercises Authenticode signing,
+        # and skipping them keeps the build independent of the updater key.
+        run: bun run tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Stage installers for signing
+        shell: bash
+        run: |
+          mkdir -p signing-input
+          cp src-tauri/target/release/bundle/nsis/*_x64-setup.exe signing-input/
+          cp src-tauri/target/release/bundle/msi/*_x64_en-US.msi signing-input/
+          ls -l signing-input
+
+      - name: Upload unsigned installers
+        id: upload-unsigned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bloom-unsigned-installers
+          path: signing-input/*
+          if-no-files-found: error
+
+      - name: Submit signing request
+        id: signpath
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ inputs.organization_id }}
+          project-slug: ${{ inputs.project_slug }}
+          signing-policy-slug: ${{ inputs.signing_policy_slug }}
+          artifact-configuration-slug: ${{ inputs.artifact_configuration_slug }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Verify Authenticode signatures
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem signed -File
+          if (-not $files) { throw "SignPath returned no files" }
+
+          $failed = $false
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature -FilePath $file.FullName
+            $subject = $sig.SignerCertificate.Subject
+            Write-Host "$($file.Name): $($sig.Status) | $subject"
+            if (-not $sig.SignerCertificate) {
+              Write-Host "::error::$($file.Name) has no Authenticode signer certificate"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Upload signed installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bloom-signed-installers
+          path: signed/*
+          if-no-files-found: error

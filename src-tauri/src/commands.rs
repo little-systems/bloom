@@ -4014,7 +4014,7 @@ fn apply_imported_settings(app: &AppHandle, settings: &str) -> Result<(), String
         );
     }
 
-    if imported.get("bloom-scale").is_some() {
+    if imported.contains_key("bloom-scale") {
         re_register_appbars(app, &imported);
     }
 
