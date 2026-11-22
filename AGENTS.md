@@ -4,7 +4,7 @@ Windows-only Tauri v2 app: Rust backend + React 19/TypeScript frontend. Replaces
 
 ## Commands
 
-Run from the repo root unless noted. Bun 1.4.0, Rust stable.
+Run from the repo root unless noted. Bun 1.4.0, Rust 1.95.0 (pinned in `rust-toolchain.toml`).
 
 - `bun install` — deps (CI uses `bun install --frozen-lockfile`; never create a root `package-lock.json`)
 - `bun run tauri dev` — full dev loop. Vite is on strict port 1420; do not start `bun run dev` separately
@@ -12,8 +12,8 @@ Run from the repo root unless noted. Bun 1.4.0, Rust stable.
 - `bun run i18n:check` — validates `src/i18n/locales/*.json` and every literal `t("...")` key used in `src/`. Missing translations are warnings with a coverage report (English fallback); invalid keys/placeholders/empty values fail
 - `bun run i18n:reference` — regenerate `docs/TRANSLATION_REFERENCE.md` after changing English messages; commit the generated file. CI checks it with `bun run i18n:reference --check`
 - `bun run i18n:test` — localization fallback, interpolation, plural, and catalog validation tests; runs in CI
-- `cargo check --locked` and `cargo clippy --locked --all-targets` in `src-tauri` — CI's Rust gates
-- `cargo test --locked` in `src-tauri` — pure-function unit tests. Runs fast on Windows but CI does **not** run it, so run it yourself
+- `cargo fmt --check`, `cargo check --locked`, `cargo clippy --locked --all-targets -- -D warnings`, and `cargo test --locked` in `src-tauri` — CI's Rust gates; warnings fail the build
+- `cargo test --locked` in `src-tauri` — pure-function unit tests. Runs fast on Windows and runs in CI
 - `bun run bump <x.y.z>` — bumps `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock` together
 - `bun run release <x.y.z>` — bump + commit + tag + push, must be on `main`. The release workflow fails unless all four version files match the tag. Before/after releasing, follow `RELEASE_CHECKLIST.md` (updater manifest verification, N‑1 install smoke test)
 - `website/` is a separate static site: use `npm install` / `npm run dev` there. Root scripts and CI do not build it

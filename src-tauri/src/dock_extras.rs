@@ -81,8 +81,10 @@ fn icon_for_path(path: &str) -> Option<String> {
 }
 
 unsafe fn stock_icon(full: bool) -> Option<String> {
-    let mut info = SHSTOCKICONINFO::default();
-    info.cbSize = std::mem::size_of::<SHSTOCKICONINFO>() as u32;
+    let mut info = SHSTOCKICONINFO {
+        cbSize: std::mem::size_of::<SHSTOCKICONINFO>() as u32,
+        ..Default::default()
+    };
     SHGetStockIconInfo(
         if full {
             SIID_RECYCLERFULL
@@ -338,8 +340,10 @@ fn recycle_bin_full() -> bool {
             return guard.full;
         }
     }
-    let mut info = SHQUERYRBINFO::default();
-    info.cbSize = std::mem::size_of::<SHQUERYRBINFO>() as u32;
+    let mut info = SHQUERYRBINFO {
+        cbSize: std::mem::size_of::<SHQUERYRBINFO>() as u32,
+        ..Default::default()
+    };
     let full =
         unsafe { SHQueryRecycleBinW(PCWSTR::null(), &mut info) }.is_ok() && info.i64NumItems > 0;
     if let Ok(mut guard) = state.lock() {
